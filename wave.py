@@ -22,9 +22,9 @@ CHAR_HANDLE = 32
 # Servo IDs from base to tip: 6=waist, 5=shoulder, 4=elbow, 3=wrist, 2=wrist roll
 # ID 1 is the gripper — left at rest.
 JOINTS  = [6,    5,    4,    3,    2,    1   ]
-CENTER  = [1500, 1500, 1500, 1000, 1500, 1500]  # tune if arm slouches
-AMPLITUDE  = 120    # ±120 position units ≈ ±14° of swing
-PERIOD     = 5.0    # seconds per full sway cycle (longer = lazier)
+CENTER  = [1500, 1500, 1500, 1000, 1500, 2500]  # tune if arm slouches
+AMPLITUDE  = 800    # ±120 position units ≈ ±14° of swing
+PERIOD     = 15.0    # seconds per full sway cycle (longer = lazier)
 PHASE_STEP = 0.40   # radians of lag added per joint toward the tip
 UPDATE_HZ  = 20     # command updates per second
 # ─────────────────────────────────────────────────────────────────────────────
