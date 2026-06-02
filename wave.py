@@ -35,10 +35,14 @@ UPDATE_HZ  = 20
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Spin-and-clap keyframes ───────────────────────────────────────────────────
-SC_CONDENSED = [(6, 1500), (5, 1200), (4, 2200), (3, 1800), (2, 1500), (1, 1500)]
-SC_RAISED    = [(6, 1500), (5, 1900), (4, 1300), (3, 1000), (2, 1500), (1, 1500)]
-SC_OPEN      = [(1, 2500)]
-SC_CLOSED    = [(1, 1500)]
+SC_WAIST_COILED      = 1000
+SC_WAIST_EXTENDED    = 2000
+SC_SHOULDER_COILED   = 1200
+SC_SHOULDER_EXTENDED = 1900
+SC_ELBOW_COILED      = 2200
+SC_ELBOW_EXTENDED    = 1300
+SC_WRIST_COILED      = 1800
+SC_WRIST_EXTENDED    = 1000
 # ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -87,17 +91,20 @@ async def run_wave(client):
 async def run_spin_clap(client):
     print("Spin & clap. Ctrl+C to stop.\n")
 
+    coiled   = [(6, SC_WAIST_COILED),   (5, SC_SHOULDER_COILED),   (4, SC_ELBOW_COILED),   (3, SC_WRIST_COILED),   (2, 1500), (1, 1500)]
+    extended = [(6, SC_WAIST_EXTENDED), (5, SC_SHOULDER_EXTENDED), (4, SC_ELBOW_EXTENDED), (3, SC_WRIST_EXTENDED), (2, 1500), (1, 1500)]
+
     async def send(pos, dur, pause):
         await client.write_gatt_char(CHAR_HANDLE, make_move(pos, dur), response=False)
         await asyncio.sleep(pause)
 
     while True:
-        await send(SC_CONDENSED, 1500, 1.8)
-        await send(SC_RAISED,    2000, 2.3)
+        await send(coiled,       1500, 1.8)
+        await send(extended,     2000, 2.3)
         for _ in range(2):
-            await send(SC_OPEN,   350, 0.45)
-            await send(SC_CLOSED, 350, 0.45)
-        await send(SC_CONDENSED, 2000, 2.3)
+            await send([(1, 2500)], 350, 0.45)
+            await send([(1, 1500)], 350, 0.45)
+        await send(coiled, 2000, 2.3)
 
 
 async def main():
@@ -109,7 +116,7 @@ async def main():
         print(f"Connected.")
 
         if MODE == "spin_clap":
-            home = SC_CONDENSED
+            home = [(6, SC_WAIST_COILED), (5, SC_SHOULDER_COILED), (4, SC_ELBOW_COILED), (3, SC_WRIST_COILED), (2, 1500), (1, 1500)]
         else:
             home = list(zip(JOINTS, CENTER))
 

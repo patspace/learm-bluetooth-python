@@ -30,16 +30,26 @@ params = {
     "phase_step":  0.40,
     "update_hz":   20,
     "mode":        "wave",   # "wave" | "spin_clap"
+    # Spin & clap keyframe positions (tunable from UI)
+    "sc_waist_coiled":      1000,
+    "sc_waist_extended":    2000,
+    "sc_shoulder_coiled":   1200,
+    "sc_shoulder_extended": 1900,
+    "sc_elbow_coiled":      2200,
+    "sc_elbow_extended":    1300,
+    "sc_wrist_coiled":      1800,
+    "sc_wrist_extended":    1000,
 }
 
 status = {"running": False, "connected": False, "error": ""}
 stop_flag = threading.Event()
 
-# Spin-and-clap keyframes (waist, shoulder, elbow, wrist pitch, wrist roll, gripper)
-SC_CONDENSED = [(6, 1500), (5, 1200), (4, 2200), (3, 1800), (2, 1500), (1, 1500)]
-SC_RAISED    = [(6, 1500), (5, 1900), (4, 1300), (3, 1000), (2, 1500), (1, 1500)]
-SC_OPEN      = [(1, 2500)]
-SC_CLOSED    = [(1, 1500)]
+SC_INT_KEYS = (
+    "sc_waist_coiled", "sc_waist_extended",
+    "sc_shoulder_coiled", "sc_shoulder_extended",
+    "sc_elbow_coiled", "sc_elbow_extended",
+    "sc_wrist_coiled", "sc_wrist_extended",
+)
 
 
 # ── BLE helpers ──────────────────────────────────────────────────────────────
@@ -51,6 +61,27 @@ def make_move(positions, duration_ms):
         pos = max(500, min(2500, int(pos)))
         p += [sid, pos & 0xFF, (pos >> 8) & 0xFF]
     return bytes([0x55, 0x55, len(p) + 2, 0x03] + p)
+
+
+def sc_keyframes():
+    """Build spin-and-clap keyframes from current params."""
+    coiled = [
+        (6, params["sc_waist_coiled"]),
+        (5, params["sc_shoulder_coiled"]),
+        (4, params["sc_elbow_coiled"]),
+        (3, params["sc_wrist_coiled"]),
+        (2, 1500),
+        (1, 1500),
+    ]
+    extended = [
+        (6, params["sc_waist_extended"]),
+        (5, params["sc_shoulder_extended"]),
+        (4, params["sc_elbow_extended"]),
+        (3, params["sc_wrist_extended"]),
+        (2, 1500),
+        (1, 1500),
+    ]
+    return coiled, extended
 
 
 async def find_arm():
@@ -84,17 +115,17 @@ async def spin_clap_loop(client):
         await asyncio.sleep(pause)
 
     while not stop_flag.is_set():
-        await send(SC_CONDENSED, 1500, 1.8)
+        coiled, extended = sc_keyframes()
+        await send(coiled,    1500, 1.8)
         if stop_flag.is_set(): break
-        await send(SC_RAISED, 2000, 2.3)
+        await send(extended,  2000, 2.3)
         if stop_flag.is_set(): break
-        # open-close 2x
         for _ in range(2):
-            await send(SC_OPEN,  350, 0.45)
+            await send([(1, 2500)], 350, 0.45)
             if stop_flag.is_set(): break
-            await send(SC_CLOSED, 350, 0.45)
+            await send([(1, 1500)], 350, 0.45)
             if stop_flag.is_set(): break
-        await send(SC_CONDENSED, 2000, 2.3)
+        await send(coiled, 2000, 2.3)
 
 
 async def run_animation():
@@ -110,7 +141,7 @@ async def run_animation():
             status["error"] = ""
 
             mode = params["mode"]
-            home = SC_CONDENSED if mode == "spin_clap" else list(zip(params["joints"], params["centers"]))
+            home = sc_keyframes()[0] if mode == "spin_clap" else list(zip(params["joints"], params["centers"]))
 
             await client.write_gatt_char(CHAR_HANDLE, make_move(home, 2000), response=False)
             await asyncio.sleep(2.5)
@@ -159,6 +190,9 @@ def set_params():
         params["centers"] = [int(x) for x in data["centers"]]
     if "mode" in data and data["mode"] in ("wave", "spin_clap"):
         params["mode"] = data["mode"]
+    for key in SC_INT_KEYS:
+        if key in data:
+            params[key] = int(data[key])
     return jsonify({"ok": True})
 
 

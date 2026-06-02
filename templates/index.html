@@ -17,10 +17,7 @@
     padding: 40px 20px;
   }
 
-  .panel {
-    width: 100%;
-    max-width: 520px;
-  }
+  .panel { width: 100%; max-width: 520px; }
 
   header {
     display: flex;
@@ -41,14 +38,9 @@
   }
   .dot.on  { background: #22c55e; box-shadow: 0 0 8px #22c55e88; }
   .dot.err { background: #ef4444; }
-
   .status-label { font-size: 12px; color: #666; }
 
-  .controls {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 36px;
-  }
+  .controls { display: flex; gap: 10px; margin-bottom: 36px; }
 
   button {
     flex: 1;
@@ -64,28 +56,27 @@
     transition: background 0.15s, border-color 0.15s;
   }
   button:hover { background: #222; border-color: #555; }
-  button.active { background: #14532d; border-color: #22c55e; color: #86efac; }
+  button.active      { background: #14532d; border-color: #22c55e; color: #86efac; }
   button.mode-active { background: #1e3a5f; border-color: #60a5fa; color: #93c5fd; }
   button:disabled { opacity: 0.4; cursor: default; }
 
-  section { margin-bottom: 32px; }
+  section { margin-bottom: 28px; }
 
   h2 {
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.12em;
     color: #555;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
   }
 
   .row {
     display: grid;
-    grid-template-columns: 100px 1fr 52px;
+    grid-template-columns: 110px 1fr 52px;
     align-items: center;
     gap: 12px;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
   }
-
   .row label { color: #aaa; font-size: 13px; }
 
   input[type=range] {
@@ -113,11 +104,7 @@
     min-width: 52px;
   }
 
-  .servo-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
+  .servo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
   .servo-item {
     background: #1a1a1a;
@@ -125,34 +112,18 @@
     border-radius: 8px;
     padding: 12px;
   }
-
   .servo-item label {
-    display: block;
-    color: #666;
-    font-size: 11px;
-    margin-bottom: 8px;
-    letter-spacing: 0.05em;
+    display: block; color: #666; font-size: 11px;
+    margin-bottom: 8px; letter-spacing: 0.05em;
   }
-
   .servo-item input[type=range] { margin-bottom: 4px; }
+  .servo-val { text-align: right; color: #60a5fa; font-size: 12px; }
 
-  .servo-val {
-    text-align: right;
-    color: #60a5fa;
-    font-size: 12px;
+  .divider {
+    height: 1px;
+    background: #1e1e1e;
+    margin: 0 0 28px 0;
   }
-
-  .spin-clap-info {
-    background: #1a1a1a;
-    border: 1px solid #222;
-    border-radius: 8px;
-    padding: 16px;
-    color: #666;
-    font-size: 12px;
-    line-height: 1.8;
-  }
-
-  .spin-clap-info span { color: #aaa; }
 
   #error {
     margin-top: 16px;
@@ -174,35 +145,33 @@
 
   <section>
     <h2>Mode</h2>
-    <div class="controls" style="margin-bottom: 0;">
+    <div class="controls" style="margin-bottom:0;">
       <button id="btn-mode-wave"      class="mode-active" onclick="setMode('wave')">WAVE</button>
       <button id="btn-mode-spin-clap"                     onclick="setMode('spin_clap')">SPIN &amp; CLAP</button>
     </div>
   </section>
 
-  <div class="controls" style="margin-top: 24px;">
+  <div class="controls" style="margin-top:24px;">
     <button id="btn-start" onclick="startAnim()">START</button>
     <button id="btn-stop"  onclick="stopAnim()" disabled>STOP</button>
   </div>
 
+  <!-- ── Wave params ── -->
   <div id="wave-params">
     <section>
       <h2>Wave Shape</h2>
-
       <div class="row">
         <label>Amplitude</label>
         <input type="range" id="amplitude" min="0" max="400" step="5" value="120"
                oninput="syncParam('amplitude', this.value)">
         <div class="val" id="amplitude-val">120</div>
       </div>
-
       <div class="row">
         <label>Period (s)</label>
         <input type="range" id="period" min="1" max="20" step="0.5" value="5"
                oninput="syncParam('period', this.value)">
         <div class="val" id="period-val">5.0s</div>
       </div>
-
       <div class="row">
         <label>Phase lag</label>
         <input type="range" id="phase_step" min="0" max="1.57" step="0.05" value="0.40"
@@ -217,13 +186,69 @@
     </section>
   </div>
 
+  <!-- ── Spin & clap params ── -->
   <div id="spin-clap-params" style="display:none;">
+
     <section>
-      <h2>Sequence</h2>
-      <div class="spin-clap-info">
-        <span>Condense</span> → <span>Rise &amp; unfurl</span> → <span>Clap ×2</span> → <span>Condense</span> → repeat
+      <h2>Waist Spin</h2>
+      <div class="row">
+        <label>Coiled</label>
+        <input type="range" id="sc_waist_coiled" min="500" max="2500" step="10" value="1000"
+               oninput="syncSC('sc_waist_coiled', this.value)">
+        <div class="val" id="sc_waist_coiled-val">1000</div>
+      </div>
+      <div class="row">
+        <label>Extended</label>
+        <input type="range" id="sc_waist_extended" min="500" max="2500" step="10" value="2000"
+               oninput="syncSC('sc_waist_extended', this.value)">
+        <div class="val" id="sc_waist_extended-val">2000</div>
       </div>
     </section>
+
+    <section>
+      <h2>Coiled Position</h2>
+      <div class="row">
+        <label>Shoulder</label>
+        <input type="range" id="sc_shoulder_coiled" min="500" max="2500" step="10" value="1200"
+               oninput="syncSC('sc_shoulder_coiled', this.value)">
+        <div class="val" id="sc_shoulder_coiled-val">1200</div>
+      </div>
+      <div class="row">
+        <label>Elbow</label>
+        <input type="range" id="sc_elbow_coiled" min="500" max="2500" step="10" value="2200"
+               oninput="syncSC('sc_elbow_coiled', this.value)">
+        <div class="val" id="sc_elbow_coiled-val">2200</div>
+      </div>
+      <div class="row">
+        <label>Wrist</label>
+        <input type="range" id="sc_wrist_coiled" min="500" max="2500" step="10" value="1800"
+               oninput="syncSC('sc_wrist_coiled', this.value)">
+        <div class="val" id="sc_wrist_coiled-val">1800</div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Extended Position</h2>
+      <div class="row">
+        <label>Shoulder</label>
+        <input type="range" id="sc_shoulder_extended" min="500" max="2500" step="10" value="1900"
+               oninput="syncSC('sc_shoulder_extended', this.value)">
+        <div class="val" id="sc_shoulder_extended-val">1900</div>
+      </div>
+      <div class="row">
+        <label>Elbow</label>
+        <input type="range" id="sc_elbow_extended" min="500" max="2500" step="10" value="1300"
+               oninput="syncSC('sc_elbow_extended', this.value)">
+        <div class="val" id="sc_elbow_extended-val">1300</div>
+      </div>
+      <div class="row">
+        <label>Wrist</label>
+        <input type="range" id="sc_wrist_extended" min="500" max="2500" step="10" value="1000"
+               oninput="syncSC('sc_wrist_extended', this.value)">
+        <div class="val" id="sc_wrist_extended-val">1000</div>
+      </div>
+    </section>
+
   </div>
 
   <div id="error"></div>
@@ -234,8 +259,15 @@ const JOINTS   = [6, 5, 4, 3, 2, 1];
 const LABELS   = ['6 — Waist', '5 — Shoulder', '4 — Elbow', '3 — Wrist pitch', '2 — Wrist roll', '1 — Gripper'];
 const MINIMUMS = [500, 500, 500, 500, 500, 1500];
 
-let centers   = [1500, 1500, 1500, 1000, 1500, 1500];
-let sendTimer = null;
+const SC_KEYS = [
+  'sc_waist_coiled','sc_waist_extended',
+  'sc_shoulder_coiled','sc_shoulder_extended',
+  'sc_elbow_coiled','sc_elbow_extended',
+  'sc_wrist_coiled','sc_wrist_extended',
+];
+
+let centers     = [1500, 1500, 1500, 1000, 1500, 1500];
+let sendTimer   = null;
 let currentMode = 'wave';
 
 // Build servo center sliders
@@ -277,18 +309,30 @@ function syncCenter(i, value) {
   scheduleSend();
 }
 
+function syncSC(key, value) {
+  document.getElementById(`${key}-val`).textContent = value;
+  scheduleSend();
+}
+
 function scheduleSend() {
   clearTimeout(sendTimer);
   sendTimer = setTimeout(sendParams, 60);
 }
 
 async function sendParams() {
+  const scVals = {};
+  SC_KEYS.forEach(k => {
+    const el = document.getElementById(k);
+    if (el) scVals[k] = parseInt(el.value);
+  });
+
   const body = {
     amplitude:  parseFloat(document.getElementById('amplitude').value),
     period:     parseFloat(document.getElementById('period').value),
     phase_step: parseFloat(document.getElementById('phase_step').value),
     centers:    [...centers],
     mode:       currentMode,
+    ...scVals,
   };
   await fetch('/api/params', {
     method: 'POST',
@@ -322,20 +366,16 @@ async function poll() {
     const s = await r.json();
     const dot = document.getElementById('dot');
     const lbl = document.getElementById('status-label');
-    const err = document.getElementById('error');
 
     if (s.connected) {
-      dot.className = 'dot on';
-      lbl.textContent = 'connected';
+      dot.className = 'dot on'; lbl.textContent = 'connected';
     } else if (s.error) {
-      dot.className = 'dot err';
-      lbl.textContent = 'error';
+      dot.className = 'dot err'; lbl.textContent = 'error';
     } else {
       dot.className = 'dot';
       lbl.textContent = s.running ? 'connecting…' : 'disconnected';
     }
-
-    err.textContent = s.error || '';
+    document.getElementById('error').textContent = s.error || '';
 
     const running = s.running;
     document.getElementById('btn-start').disabled = running;
