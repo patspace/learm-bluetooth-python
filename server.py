@@ -149,5 +149,5 @@ def stop():
 
 
 if __name__ == "__main__":
-    print("LeArm control UI → http://localhost:5001")
-    app.run(host="0.0.0.0", port=5001, debug=False)
+    print("LeArm control UI → http://localhost:5002")
+    app.run(host="0.0.0.0", port=5002, debug=False)
