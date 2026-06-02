@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """
-Gentle wave motion for LeArm via Bluetooth LE.
-Drives joints 2-6 in a sinusoidal cascade (base leads, tip lags)
-to produce a reed-in-the-breeze effect.
+LeArm animations via Bluetooth LE.
+
+Modes
+-----
+  wave      — gentle sinusoidal reed-in-the-breeze across all joints
+  spin_clap — condense → rise → clap ×2 → condense, repeat
 
 Usage:
     pip install bleak
@@ -17,16 +20,25 @@ from bleak import BleakClient, BleakScanner
 # Hiwonder BLE UART characteristic (handle 32, service 0xFFE0)
 CHAR_HANDLE = 32
 
-# ── Tunable parameters ────────────────────────────────────────────────────────
-# CENTER: resting position per joint (500–2500, center = 1500).
-# Servo IDs from base to tip: 6=waist, 5=shoulder, 4=elbow, 3=wrist, 2=wrist roll
-# ID 1 is the gripper — left at rest.
-JOINTS  = [6,    5,    4,    3,    2,    1   ]
-CENTER  = [1500, 1500, 1500, 1000, 1500, 2500]  # tune if arm slouches
-AMPLITUDE  = 800    # ±120 position units ≈ ±14° of swing
-PERIOD     = 15.0    # seconds per full sway cycle (longer = lazier)
+# ── Select animation ──────────────────────────────────────────────────────────
+MODE = "wave"    # "wave" | "spin_clap"
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Wave parameters ───────────────────────────────────────────────────────────
+# Servo IDs from base to tip: 6=waist, 5=shoulder, 4=elbow, 3=wrist, 2=wrist roll, 1=gripper
+JOINTS     = [6,    5,    4,    3,    2,    1   ]
+CENTER     = [1500, 1500, 1500, 1000, 1500, 2500]
+AMPLITUDE  = 800    # ±position units of swing
+PERIOD     = 15.0   # seconds per full sway cycle
 PHASE_STEP = 0.40   # radians of lag added per joint toward the tip
-UPDATE_HZ  = 20     # command updates per second
+UPDATE_HZ  = 20
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Spin-and-clap keyframes ───────────────────────────────────────────────────
+SC_CONDENSED = [(6, 1500), (5, 700),  (4, 2300), (3, 2000), (2, 1500), (1, 1500)]
+SC_RAISED    = [(6, 1500), (5, 2200), (4, 1200), (3, 1000), (2, 1500), (1, 1500)]
+SC_OPEN      = [(1, 2500)]
+SC_CLOSED    = [(1, 1500)]
 # ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -55,41 +67,64 @@ async def find_arm():
     return None
 
 
+async def run_wave(client):
+    print(f"Waving. Period={PERIOD}s  Amplitude={AMPLITUDE}  Ctrl+C to stop.\n")
+    start = time.time()
+    omega = 2 * math.pi / PERIOD
+    tick  = 1.0 / UPDATE_HZ
+    move_duration = int(1000 / UPDATE_HZ * 1.4)
+
+    while True:
+        t = time.time() - start
+        positions = [
+            (sid, center + AMPLITUDE * math.sin(omega * t + i * PHASE_STEP))
+            for i, (sid, center) in enumerate(zip(JOINTS, CENTER))
+        ]
+        await client.write_gatt_char(CHAR_HANDLE, make_move(positions, move_duration), response=False)
+        await asyncio.sleep(tick)
+
+
+async def run_spin_clap(client):
+    print("Spin & clap. Ctrl+C to stop.\n")
+
+    async def send(pos, dur, pause):
+        await client.write_gatt_char(CHAR_HANDLE, make_move(pos, dur), response=False)
+        await asyncio.sleep(pause)
+
+    while True:
+        await send(SC_CONDENSED, 1500, 1.8)
+        await send(SC_RAISED,    2000, 2.3)
+        for _ in range(2):
+            await send(SC_OPEN,   350, 0.45)
+            await send(SC_CLOSED, 350, 0.45)
+        await send(SC_CONDENSED, 2000, 2.3)
+
+
 async def main():
     address = await find_arm()
     if not address:
         address = input("Enter BLE address manually: ").strip()
 
-    move_duration = int(1000 / UPDATE_HZ * 1.4)
-    tick = 1.0 / UPDATE_HZ
-
     async with BleakClient(address) as client:
-        print(f"Connected. Moving to center positions...")
+        print(f"Connected.")
 
-        cmd = make_move(list(zip(JOINTS, CENTER)), 2000)
-        await client.write_gatt_char(CHAR_HANDLE, cmd, response=False)
+        if MODE == "spin_clap":
+            home = SC_CONDENSED
+        else:
+            home = list(zip(JOINTS, CENTER))
+
+        print("Moving to start position...")
+        await client.write_gatt_char(CHAR_HANDLE, make_move(home, 2000), response=False)
         await asyncio.sleep(2.5)
 
-        print(f"Waving. Period={PERIOD}s  Amplitude={AMPLITUDE}  Ctrl+C to stop.\n")
-        start = time.time()
-        omega = 2 * math.pi / PERIOD
-
         try:
-            while True:
-                t = time.time() - start
-                positions = []
-                for i, (sid, center) in enumerate(zip(JOINTS, CENTER)):
-                    pos = center + AMPLITUDE * math.sin(omega * t + i * PHASE_STEP)
-                    positions.append((sid, pos))
-
-                cmd = make_move(positions, move_duration)
-                await client.write_gatt_char(CHAR_HANDLE, cmd, response=False)
-                await asyncio.sleep(tick)
-
+            if MODE == "spin_clap":
+                await run_spin_clap(client)
+            else:
+                await run_wave(client)
         except (KeyboardInterrupt, asyncio.CancelledError):
-            print("\nStopping — returning to center...")
-            cmd = make_move(list(zip(JOINTS, CENTER)), 2000)
-            await client.write_gatt_char(CHAR_HANDLE, cmd, response=False)
+            print("\nStopping — returning to start position...")
+            await client.write_gatt_char(CHAR_HANDLE, make_move(home, 2000), response=False)
             await asyncio.sleep(2.5)
 
 

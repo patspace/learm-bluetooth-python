@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Web UI for real-time LeArm wave control.
+Web UI for real-time LeArm animation control.
 
     pip install flask bleak
     python server.py
 
-Then open http://localhost:5000
+Then open http://localhost:5002
 """
 
 import asyncio
@@ -29,10 +29,17 @@ params = {
     "period":      5.0,
     "phase_step":  0.40,
     "update_hz":   20,
+    "mode":        "wave",   # "wave" | "spin_clap"
 }
 
 status = {"running": False, "connected": False, "error": ""}
 stop_flag = threading.Event()
+
+# Spin-and-clap keyframes (waist, shoulder, elbow, wrist pitch, wrist roll, gripper)
+SC_CONDENSED = [(6, 1500), (5, 700),  (4, 2300), (3, 2000), (2, 1500), (1, 1500)]
+SC_RAISED    = [(6, 1500), (5, 2200), (4, 1200), (3, 1000), (2, 1500), (1, 1500)]
+SC_OPEN      = [(1, 2500)]
+SC_CLOSED    = [(1, 1500)]
 
 
 # ── BLE helpers ──────────────────────────────────────────────────────────────
@@ -54,7 +61,43 @@ async def find_arm():
     return None
 
 
-async def run_wave():
+async def wave_loop(client):
+    start = time.time()
+    while not stop_flag.is_set():
+        t     = time.time() - start
+        omega = 2 * math.pi / params["period"]
+        hz    = params["update_hz"]
+        amp   = params["amplitude"]
+        ps    = params["phase_step"]
+        positions = [
+            (sid, params["centers"][i] + amp * math.sin(omega * t + i * ps))
+            for i, sid in enumerate(params["joints"])
+        ]
+        dur = int(1000 / hz * 1.4)
+        await client.write_gatt_char(CHAR_HANDLE, make_move(positions, dur), response=False)
+        await asyncio.sleep(1.0 / hz)
+
+
+async def spin_clap_loop(client):
+    async def send(pos, dur, pause):
+        await client.write_gatt_char(CHAR_HANDLE, make_move(pos, dur), response=False)
+        await asyncio.sleep(pause)
+
+    while not stop_flag.is_set():
+        await send(SC_CONDENSED, 1500, 1.8)
+        if stop_flag.is_set(): break
+        await send(SC_RAISED, 2000, 2.3)
+        if stop_flag.is_set(): break
+        # open-close 2x
+        for _ in range(2):
+            await send(SC_OPEN,  350, 0.45)
+            if stop_flag.is_set(): break
+            await send(SC_CLOSED, 350, 0.45)
+            if stop_flag.is_set(): break
+        await send(SC_CONDENSED, 2000, 2.3)
+
+
+async def run_animation():
     address = await find_arm()
     if not address:
         status["error"] = "Arm not found — is Bluetooth on?"
@@ -66,32 +109,18 @@ async def run_wave():
             status["connected"] = True
             status["error"] = ""
 
-            # move to centers first
-            cmd = make_move(list(zip(params["joints"], params["centers"])), 2000)
-            await client.write_gatt_char(CHAR_HANDLE, cmd, response=False)
+            mode = params["mode"]
+            home = SC_CONDENSED if mode == "spin_clap" else list(zip(params["joints"], params["centers"]))
+
+            await client.write_gatt_char(CHAR_HANDLE, make_move(home, 2000), response=False)
             await asyncio.sleep(2.5)
 
-            start = time.time()
-            while not stop_flag.is_set():
-                t = time.time() - start
-                omega = 2 * math.pi / params["period"]
-                hz    = params["update_hz"]
-                amp   = params["amplitude"]
-                ps    = params["phase_step"]
+            if mode == "spin_clap":
+                await spin_clap_loop(client)
+            else:
+                await wave_loop(client)
 
-                positions = [
-                    (sid, params["centers"][i] + amp * math.sin(omega * t + i * ps))
-                    for i, sid in enumerate(params["joints"])
-                ]
-                dur = int(1000 / hz * 1.4)
-                await client.write_gatt_char(
-                    CHAR_HANDLE, make_move(positions, dur), response=False
-                )
-                await asyncio.sleep(1.0 / hz)
-
-            # return to centers on stop
-            cmd = make_move(list(zip(params["joints"], params["centers"])), 2000)
-            await client.write_gatt_char(CHAR_HANDLE, cmd, response=False)
+            await client.write_gatt_char(CHAR_HANDLE, make_move(home, 2000), response=False)
             await asyncio.sleep(2.5)
 
     except Exception as e:
@@ -104,7 +133,7 @@ async def run_wave():
 def _ble_thread():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    loop.run_until_complete(run_wave())
+    loop.run_until_complete(run_animation())
     loop.close()
 
 
@@ -128,6 +157,8 @@ def set_params():
             params[key] = float(data[key])
     if "centers" in data:
         params["centers"] = [int(x) for x in data["centers"]]
+    if "mode" in data and data["mode"] in ("wave", "spin_clap"):
+        params["mode"] = data["mode"]
     return jsonify({"ok": True})
 
 
