@@ -36,8 +36,8 @@ status = {"running": False, "connected": False, "error": ""}
 stop_flag = threading.Event()
 
 # Spin-and-clap keyframes (waist, shoulder, elbow, wrist pitch, wrist roll, gripper)
-SC_CONDENSED = [(6, 1500), (5, 700),  (4, 2300), (3, 2000), (2, 1500), (1, 1500)]
-SC_RAISED    = [(6, 1500), (5, 2200), (4, 1200), (3, 1000), (2, 1500), (1, 1500)]
+SC_CONDENSED = [(6, 1500), (5, 1200), (4, 2200), (3, 1800), (2, 1500), (1, 1500)]
+SC_RAISED    = [(6, 1500), (5, 1900), (4, 1300), (3, 1000), (2, 1500), (1, 1500)]
 SC_OPEN      = [(1, 2500)]
 SC_CLOSED    = [(1, 1500)]
 
